@@ -6,3 +6,30 @@ body {
 canvas {
   display: block;
 }
+
+#controls {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: rgba(0,0,0,0.8);
+  padding: 10px;
+  color: white;
+  font-family: sans-serif;
+  z-index: 1;
+  border-radius: 8px;
+}
+#controls label {
+  display: block;
+  margin-bottom: 6px;
+}
+#controls input[type="range"] {
+  width: 100px;
+}
+#controls button {
+  margin-top: 5px;
+  padding: 4px 8px;
+  background: #222;
+  color: white;
+  border: none;
+  cursor: pointer;
+}
