@@ -1,204 +1,284 @@
-const canvas = document.getElementById('simCanvas');
+const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
 
-canvas.width = 800;
-canvas.height = 600;
+const radiusInput = document.getElementById('radius');
+const speedInput = document.getElementById('speed');
+const massInput = document.getElementById('mass');
+const angleInput = document.getElementById('angle');
+const colorInput = document.getElementById('color');
+const clearBtn = document.getElementById('clear');
+const pauseBtn = document.getElementById('pauseResume');
 
 let balls = [];
-let isMouseDown = false;
-let previewPos = null;
 let paused = false;
-let collisionCount = 0;
 
-// DOM elements
-const massInput = document.getElementById('mass');
-const speedInput = document.getElementById('speed');
-const angleInput = document.getElementById('angle');
-const radiusInput = document.getElementById('radius');
-const colorInput = document.getElementById('color');
-const pauseBtn = document.getElementById('pauseBtn');
-const clearBtn = document.getElementById('clearBtn');
+let collisionCount = 0;  // Tracks number of collisions
+
+// Preview ball data
+let previewPos = null;
+let isMouseDown = false;
 
 class Ball {
   constructor(x, y, radius, mass, velocity, color) {
-    this.position = { x, y };
-    this.velocity = velocity;
+    this.x = x;
+    this.y = y;
     this.radius = radius;
     this.mass = mass;
+    this.velocity = velocity;
     this.color = color;
   }
 
-  update() {
-    this.position.x += this.velocity.x;
-    this.position.y += this.velocity.y;
+  draw() {
+    // Draw ball
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.radius * 10, 0, Math.PI * 2);
+    ctx.fillStyle = this.color;
+    ctx.fill();
+    ctx.closePath();
 
-    if (this.position.x - this.radius < 0 || this.position.x + this.radius > canvas.width) {
+    // Draw momentum label above ball (momentum = mass * speed)
+    const speed = Math.sqrt(this.velocity.x ** 2 + this.velocity.y ** 2);
+    const momentum = (this.mass * speed).toFixed(2);
+    ctx.fillStyle = 'white';
+    ctx.font = '14px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(`${momentum} kg·m/s`, this.x, this.y - this.radius * 10 - 5);
+
+    // Draw velocity arrow
+    this.drawVelocityArrow();
+  }
+
+  drawVelocityArrow() {
+    const arrowLength = 30; // length in pixels for max speed ~ adjust if needed
+    const speed = Math.sqrt(this.velocity.x ** 2 + this.velocity.y ** 2);
+
+    if (speed === 0) return; // no arrow if no velocity
+
+    // Normalize velocity to get direction
+    const dirX = this.velocity.x / speed;
+    const dirY = this.velocity.y / speed;
+
+    // Arrow endpoint
+    const endX = this.x + dirX * arrowLength;
+    const endY = this.y + dirY * arrowLength;
+
+    // Draw arrow line
+    ctx.strokeStyle = 'white';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(this.x, this.y);
+    ctx.lineTo(endX, endY);
+    ctx.stroke();
+
+    // Draw arrow head
+    const headLength = 8;
+    const angle = Math.atan2(dirY, dirX);
+
+    ctx.beginPath();
+    ctx.moveTo(endX, endY);
+    ctx.lineTo(endX - headLength * Math.cos(angle - Math.PI / 6), endY - headLength * Math.sin(angle - Math.PI / 6));
+    ctx.lineTo(endX - headLength * Math.cos(angle + Math.PI / 6), endY - headLength * Math.sin(angle + Math.PI / 6));
+    ctx.lineTo(endX, endY);
+    ctx.fillStyle = 'white';
+    ctx.fill();
+  }
+
+  update() {
+    this.x += this.velocity.x;
+    this.y += this.velocity.y;
+    this.wallCollision();
+    this.draw();
+  }
+
+  wallCollision() {
+    if (this.x - this.radius * 10 <= 0 || this.x + this.radius * 10 >= canvas.width) {
       this.velocity.x *= -1;
     }
-    if (this.position.y - this.radius < 0 || this.position.y + this.radius > canvas.height) {
+    if (this.y - this.radius * 10 <= 0 || this.y + this.radius * 10 >= canvas.height) {
       this.velocity.y *= -1;
     }
   }
 }
 
-function resolveCollision(b1, b2) {
-  const dx = b2.position.x - b1.position.x;
-  const dy = b2.position.y - b1.position.y;
-  const dist = Math.hypot(dx, dy);
+function resolveCollision(ball1, ball2) {
+  const dx = ball2.x - ball1.x;
+  const dy = ball2.y - ball1.y;
+  const distance = Math.hypot(dx, dy);
 
-  if (dist < b1.radius + b2.radius) {
-    collisionCount++;
+  if (distance < ball1.radius * 10 + ball2.radius * 10) {
+    collisionCount++; // Increase collision count when a collision occurs
 
     const angle = Math.atan2(dy, dx);
-    const m1 = b1.mass;
-    const m2 = b2.mass;
-    const u1 = rotate(b1.velocity, angle);
-    const u2 = rotate(b2.velocity, angle);
+    const m1 = ball1.mass;
+    const m2 = ball2.mass;
 
-    const v1 = {
-      x: (u1.x * (m1 - m2) + 2 * m2 * u2.x) / (m1 + m2),
-      y: u1.y
-    };
-    const v2 = {
-      x: (u2.x * (m2 - m1) + 2 * m1 * u1.x) / (m1 + m2),
-      y: u2.y
-    };
+    const u1 = rotate(ball1.velocity, angle);
+    const u2 = rotate(ball2.velocity, angle);
 
-    b1.velocity = rotate(v1, -angle);
-    b2.velocity = rotate(v2, -angle);
+    const v1 = { x: ((m1 - m2) * u1.x + 2 * m2 * u2.x) / (m1 + m2), y: u1.y };
+    const v2 = { x: ((m2 - m1) * u2.x + 2 * m1 * u1.x) / (m1 + m2), y: u2.y };
 
-    const overlap = b1.radius + b2.radius - dist;
-    const correctionX = (overlap / 2) * Math.cos(angle);
-    const correctionY = (overlap / 2) * Math.sin(angle);
+    const vFinal1 = rotate(v1, -angle);
+    const vFinal2 = rotate(v2, -angle);
 
-    b1.position.x -= correctionX;
-    b1.position.y -= correctionY;
-    b2.position.x += correctionX;
-    b2.position.y += correctionY;
+    ball1.velocity = vFinal1;
+    ball2.velocity = vFinal2;
   }
 }
 
 function rotate(velocity, angle) {
   return {
-    x: velocity.x * Math.cos(angle) + velocity.y * Math.sin(angle),
-    y: -velocity.x * Math.sin(angle) + velocity.y * Math.cos(angle)
+    x: velocity.x * Math.cos(angle) - velocity.y * Math.sin(angle),
+    y: velocity.x * Math.sin(angle) + velocity.y * Math.cos(angle)
   };
 }
 
-function drawArrow(from, to) {
-  const headLength = 10;
-  const dx = to.x - from.x;
-  const dy = to.y - from.y;
-  const angle = Math.atan2(dy, dx);
-  ctx.beginPath();
-  ctx.moveTo(from.x, from.y);
-  ctx.lineTo(to.x, to.y);
-  ctx.lineTo(to.x - headLength * Math.cos(angle - Math.PI / 6), to.y - headLength * Math.sin(angle - Math.PI / 6));
-  ctx.moveTo(to.x, to.y);
-  ctx.lineTo(to.x - headLength * Math.cos(angle + Math.PI / 6), to.y - headLength * Math.sin(angle + Math.PI / 6));
-  ctx.strokeStyle = 'black';
-  ctx.stroke();
+function animate() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  if (!paused) {
+    balls.forEach((ball, index) => {
+      ball.update();
+      for (let j = index + 1; j < balls.length; j++) {
+        resolveCollision(ball, balls[j]);
+      }
+    });
+  } else {
+    // Draw balls but no update on pause
+    balls.forEach(ball => ball.draw());
+  }
+
+  // Draw preview ball if mouse down
+  if (isMouseDown && previewPos) {
+    const radius = parseFloat(radiusInput.value);
+    const speed = parseFloat(speedInput.value);
+    const angle = parseFloat(angleInput.value) * Math.PI / 180;
+    const mass = parseFloat(massInput.value);
+    const color = colorInput.value;
+
+    const velocity = {
+      x: speed * Math.cos(angle),
+      y: speed * Math.sin(angle)
+    };
+
+    // Draw preview ball with some transparency
+    ctx.beginPath();
+    ctx.arc(previewPos.x, previewPos.y, radius * 10, 0, Math.PI * 2);
+    ctx.fillStyle = hexToRGBA(color, 0.5);
+    ctx.fill();
+    ctx.closePath();
+
+    // Momentum label above preview ball
+    const momentum = (mass * speed).toFixed(2);
+    ctx.fillStyle = 'white';
+    ctx.font = '14px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(`${momentum} kg·m/s`, previewPos.x, previewPos.y - radius * 10 - 5);
+
+    // Draw velocity arrow on preview ball
+    drawPreviewArrow(previewPos.x, previewPos.y, velocity);
+  }
+
+  // Draw collision count and total kinetic energy (in kJ)
+  drawStats();
+
+  requestAnimationFrame(animate);
 }
 
+// Draw velocity arrow for preview ball
+function drawPreviewArrow(x, y, velocity) {
+  const arrowLength = 30;
+  const speed = Math.sqrt(velocity.x ** 2 + velocity.y ** 2);
+  if (speed === 0) return;
+
+  const dirX = velocity.x / speed;
+  const dirY = velocity.y / speed;
+
+  const endX = x + dirX * arrowLength;
+  const endY = y + dirY * arrowLength;
+
+  ctx.strokeStyle = 'white';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.lineTo(endX, endY);
+  ctx.stroke();
+
+  const headLength = 8;
+  const angle = Math.atan2(dirY, dirX);
+
+  ctx.beginPath();
+  ctx.moveTo(endX, endY);
+  ctx.lineTo(endX - headLength * Math.cos(angle - Math.PI / 6), endY - headLength * Math.sin(angle - Math.PI / 6));
+  ctx.lineTo(endX - headLength * Math.cos(angle + Math.PI / 6), endY - headLength * Math.sin(angle + Math.PI / 6));
+  ctx.lineTo(endX, endY);
+  ctx.fillStyle = 'white';
+  ctx.fill();
+}
+
+// Helper: convert hex color to rgba string with alpha
+function hexToRGBA(hex, alpha) {
+  const r = parseInt(hex.slice(1,3), 16);
+  const g = parseInt(hex.slice(3,5), 16);
+  const b = parseInt(hex.slice(5,7), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+// Alignment helper: snap if close to another ball's X or Y (within 10px)
 function applyAlignmentAssist(x, y) {
-  for (let ball of balls) {
-    if (Math.abs(ball.position.y - y) < 15) {
-      return { x, y: ball.position.y };
-    }
+  for (const other of balls) {
+    const dx = Math.abs(x - other.x);
+    const dy = Math.abs(y - other.y);
+    if (dx < 10) return { x: other.x, y };
+    if (dy < 10) return { x, y: other.y };
   }
   return { x, y };
 }
 
-function draw() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  // Collision count (top left)
-  ctx.fillStyle = 'black';
-  ctx.font = '16px Arial';
+// Draw collision count and kinetic energy (kJ)
+function drawStats() {
+  ctx.fillStyle = 'white';
+  ctx.font = '18px monospace';
   ctx.textAlign = 'left';
-  ctx.fillText(`Collisions: ${collisionCount}`, 10, 20);
 
-  // Kinetic energy (top right)
-  const totalKE = balls.reduce((sum, b) => {
-    const speed = Math.hypot(b.velocity.x, b.velocity.y);
-    return sum + 0.5 * b.mass * speed * speed;
-  }, 0);
-  ctx.textAlign = 'right';
-  ctx.fillText(`Energy: ${totalKE.toFixed(1)} J`, canvas.width - 10, 20);
+  // Draw collision count
+  ctx.fillText(`Collisions: ${collisionCount}`, 10, 25);
 
+  // Calculate total kinetic energy: KE = 0.5 * m * v^2 (joules)
+  let totalKE = 0;
   balls.forEach(ball => {
-    ball.update();
-
-    // Draw ball
-    ctx.beginPath();
-    ctx.arc(ball.position.x, ball.position.y, ball.radius, 0, Math.PI * 2);
-    ctx.fillStyle = ball.color;
-    ctx.fill();
-    ctx.stroke();
-
-    // Velocity arrow
-    drawArrow(ball.position, {
-      x: ball.position.x + ball.velocity.x * 10,
-      y: ball.position.y + ball.velocity.y * 10
-    });
-
-    // Momentum label above
-    const speed = Math.hypot(ball.velocity.x, ball.velocity.y);
-    ctx.fillStyle = 'black';
-    ctx.font = '12px Arial';
-    ctx.textAlign = 'center';
-    ctx.fillText(`${(ball.mass * speed).toFixed(1)} kg·m/s`, ball.position.x, ball.position.y - ball.radius - 10);
+    const speed = Math.sqrt(ball.velocity.x ** 2 + ball.velocity.y ** 2);
+    totalKE += 0.5 * ball.mass * speed * speed;
   });
 
-  for (let i = 0; i < balls.length; i++) {
-    for (let j = i + 1; j < balls.length; j++) {
-      resolveCollision(balls[i], balls[j]);
-    }
-  }
+  // Convert joules to kilojoules and round
+  const totalKEkJ = (totalKE / 1000).toFixed(3);
 
-  // Preview
-  if (isMouseDown && previewPos) {
-    const radius = parseFloat(radiusInput.value);
-    ctx.beginPath();
-    ctx.arc(previewPos.x, previewPos.y, radius, 0, Math.PI * 2);
-    ctx.strokeStyle = 'gray';
-    ctx.setLineDash([5, 5]);
-    ctx.stroke();
-    ctx.setLineDash([]);
-
-    // Preview arrow
-    const speed = parseFloat(speedInput.value);
-    const angle = parseFloat(angleInput.value) * Math.PI / 180;
-    drawArrow(previewPos, {
-      x: previewPos.x + speed * Math.cos(angle) * 10,
-      y: previewPos.y + speed * Math.sin(angle) * 10
-    });
-  }
+  ctx.fillText(`Kinetic Energy: ${totalKEkJ} kJ`, 10, 50);
 }
 
-function animate() {
-  requestAnimationFrame(animate);
-  if (!paused) draw();
-}
-
-canvas.addEventListener('mousedown', e => {
-  if (e.button === 0) {
+// Mouse handling for preview and placement
+canvas.addEventListener('mousedown', (e) => {
+  if (e.button === 0) {  // Left click starts placement
     isMouseDown = true;
     updatePreviewPosition(e);
-  } else if (e.button === 2) {
+  } else if (e.button === 2) { // Right click cancels placement
     isMouseDown = false;
     previewPos = null;
   }
 });
 
-canvas.addEventListener('mousemove', e => {
+canvas.addEventListener('mousemove', (e) => {
   if (isMouseDown) {
     updatePreviewPosition(e);
   }
 });
 
-canvas.addEventListener('mouseup', e => {
+canvas.addEventListener('mouseup', (e) => {
   if (e.button === 0 && isMouseDown && previewPos) {
+    // Place the ball at previewPos with current inputs
     const radius = parseFloat(radiusInput.value);
     const speed = parseFloat(speedInput.value);
     const angle = parseFloat(angleInput.value) * Math.PI / 180;
@@ -216,25 +296,31 @@ canvas.addEventListener('mouseup', e => {
   }
 });
 
-canvas.addEventListener('contextmenu', e => {
+// Prevent context menu on right click on canvas
+canvas.addEventListener('contextmenu', (e) => {
   e.preventDefault();
 });
 
+// Update preview position and apply alignment assist
 function updatePreviewPosition(e) {
-  const rect = canvas.getBoundingClientRect();
-  const x = e.clientX - rect.left;
-  const y = e.clientY - rect.top;
-  previewPos = applyAlignmentAssist(x, y);
+  let rect = canvas.getBoundingClientRect();
+  let x = e.clientX - rect.left;
+  let y = e.clientY - rect.top;
+  let aligned = applyAlignmentAssist(x, y);
+  previewPos = aligned;
 }
 
-pauseBtn.addEventListener('click', () => {
-  paused = !paused;
-  pauseBtn.textContent = paused ? 'Resume' : 'Pause';
-});
-
+// Clear all balls and reset counters
 clearBtn.addEventListener('click', () => {
   balls = [];
   collisionCount = 0;
 });
 
+// Pause/Resume toggle
+pauseBtn.addEventListener('click', () => {
+  paused = !paused;
+  pauseBtn.textContent = paused ? 'Resume' : 'Pause';
+});
+
 animate();
+
