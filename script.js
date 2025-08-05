@@ -14,6 +14,8 @@ const pauseBtn = document.getElementById('pauseResume');
 let balls = [];
 let paused = false;
 
+let collisionCount = 0;  // Tracks number of collisions
+
 // Preview ball data
 let previewPos = null;
 let isMouseDown = false;
@@ -106,6 +108,8 @@ function resolveCollision(ball1, ball2) {
   const distance = Math.hypot(dx, dy);
 
   if (distance < ball1.radius * 10 + ball2.radius * 10) {
+    collisionCount++; // Increase collision count when a collision occurs
+
     const angle = Math.atan2(dy, dx);
     const m1 = ball1.mass;
     const m2 = ball2.mass;
@@ -177,6 +181,9 @@ function animate() {
     drawPreviewArrow(previewPos.x, previewPos.y, velocity);
   }
 
+  // Draw collision count and total kinetic energy (in kJ)
+  drawStats();
+
   requestAnimationFrame(animate);
 }
 
@@ -230,66 +237,28 @@ function applyAlignmentAssist(x, y) {
   return { x, y };
 }
 
-// Mouse handling for preview and placement
-canvas.addEventListener('mousedown', (e) => {
-  if (e.button === 0) { // left click
-    isMouseDown = true;
-    updatePreviewPos(e);
-  }
-});
+// Draw collision count and kinetic energy (kJ)
+function drawStats() {
+  ctx.fillStyle = 'white';
+  ctx.font = '18px monospace';
+  ctx.textAlign = 'left';
 
-canvas.addEventListener('mousemove', (e) => {
-  if (isMouseDown) {
-    updatePreviewPos(e);
-  }
-});
+  // Draw collision count
+  ctx.fillText(`Collisions: ${collisionCount}`, 10, 25);
 
-canvas.addEventListener('mouseup', (e) => {
-  if (e.button === 0) { // left click release
-    if (isMouseDown && previewPos) {
-      const radius = parseFloat(radiusInput.value);
-      const speed = parseFloat(speedInput.value);
-      const angle = parseFloat(angleInput.value) * Math.PI / 180;
-      const mass = parseFloat(massInput.value);
-      const color = colorInput.value;
+  // Calculate total kinetic energy: KE = 0.5 * m * v^2 (joules)
+  let totalKE = 0;
+  balls.forEach(ball => {
+    const speed = Math.sqrt(ball.velocity.x ** 2 + ball.velocity.y ** 2);
+    totalKE += 0.5 * ball.mass * speed * speed;
+  });
 
-      const velocity = {
-        x: speed * Math.cos(angle),
-        y: speed * Math.sin(angle)
-      };
+  // Convert joules to kilojoules and round
+  const totalKEkJ = (totalKE / 1000).toFixed(3);
 
-      const ball = new Ball(previewPos.x, previewPos.y, radius, mass, velocity, color);
-      balls.push(ball);
-    }
-    isMouseDown = false;
-    previewPos = null;
-  }
-});
-
-// Cancel placement on right click
-canvas.addEventListener('contextmenu', (e) => {
-  e.preventDefault();
-  if (isMouseDown) {
-    isMouseDown = false;
-    previewPos = null;
-  }
-});
-
-function updatePreviewPos(e) {
-  const rect = canvas.getBoundingClientRect();
-  let x = e.clientX - rect.left;
-  let y = e.clientY - rect.top;
-
-  previewPos = applyAlignmentAssist(x, y);
+  ctx.fillText(`Kinetic Energy: ${totalKEkJ} kJ`, 10, 50);
 }
 
-clearBtn.addEventListener('click', () => {
-  balls = [];
-});
-
-pauseBtn.addEventListener('click', () => {
-  paused = !paused;
-  pauseBtn.textContent = paused ? "Resume" : "Pause";
-});
-
-animate();
+// Mouse handling for preview and placement
+canvas.addEventListener('mousedown', (e) => {
+  if (e
