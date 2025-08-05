@@ -3,12 +3,14 @@ const ctx = canvas.getContext('2d');
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-// UI elements
-const radiusSlider = document.getElementById('radius');
-const speedSlider = document.getElementById('speed');
-const massSlider = document.getElementById('mass');
-const colorPicker = document.getElementById('color');
+// UI Elements
+const radiusInput = document.getElementById('radius');
+const speedInput = document.getElementById('speed');
+const angleInput = document.getElementById('angle');
+const massInput = document.getElementById('mass');
+const colorInput = document.getElementById('color');
 const clearBtn = document.getElementById('clear');
+const pauseResumeBtn = document.getElementById('pauseResume');
 
 class Ball {
   constructor(x, y, vx, vy, r, color, mass) {
@@ -30,7 +32,7 @@ class Ball {
   }
 
   update() {
-    if (!this.dragging) {
+    if (!this.dragging && !paused) {
       this.x += this.vx;
       this.y += this.vy;
 
@@ -91,24 +93,27 @@ function resolveCollision(b1, b2) {
 }
 
 const balls = [];
+let paused = false;
 
+// Add new ball on click
 canvas.addEventListener('click', (e) => {
   const rect = canvas.getBoundingClientRect();
   const x = e.clientX - rect.left;
   const y = e.clientY - rect.top;
 
-  const r = parseFloat(radiusSlider.value);
-  const speed = parseFloat(speedSlider.value);
-  const angle = Math.random() * Math.PI * 2;
-  const vx = Math.cos(angle) * speed;
-  const vy = Math.sin(angle) * speed;
-  const color = colorPicker.value;
-  const mass = parseFloat(massSlider.value);
+  const r = parseFloat(radiusInput.value);
+  const speed = parseFloat(speedInput.value);
+  const angleDeg = parseFloat(angleInput.value);
+  const angleRad = angleDeg * Math.PI / 180;
+  const vx = Math.cos(angleRad) * speed;
+  const vy = Math.sin(angleRad) * speed;
+  const color = colorInput.value;
+  const mass = parseFloat(massInput.value);
 
   balls.push(new Ball(x, y, vx, vy, r, color, mass));
 });
 
-// Drag support
+// Dragging support
 let draggingBall = null;
 
 canvas.addEventListener('mousedown', (e) => {
@@ -139,17 +144,26 @@ canvas.addEventListener('mouseup', () => {
   }
 });
 
+// Clear all
 clearBtn.addEventListener('click', () => {
   balls.length = 0;
+});
+
+// Pause/Resume toggle
+pauseResumeBtn.addEventListener('click', () => {
+  paused = !paused;
+  pauseResumeBtn.textContent = paused ? 'Resume' : 'Pause';
 });
 
 function animate() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   balls.forEach(ball => ball.update());
 
-  for (let i = 0; i < balls.length; i++) {
-    for (let j = i + 1; j < balls.length; j++) {
-      resolveCollision(balls[i], balls[j]);
+  if (!paused) {
+    for (let i = 0; i < balls.length; i++) {
+      for (let j = i + 1; j < balls.length; j++) {
+        resolveCollision(balls[i], balls[j]);
+      }
     }
   }
 
