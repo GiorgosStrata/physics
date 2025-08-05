@@ -11,15 +11,12 @@ const colorInput = document.getElementById('color');
 const energyRetentionInput = document.getElementById('energyRetention');
 const clearBtn = document.getElementById('clear');
 const pauseBtn = document.getElementById('pauseResume');
+const speedUpBtn = document.getElementById('speedUp');
 
 let balls = [];
 let paused = false;
-
 let collisionCount = 0;  // Tracks number of collisions
-
-// Preview ball data
-let previewPos = null;
-let isMouseDown = false;
+let timeScale = 1;  // Simulation speed multiplier (1x, 2x, 4x)
 
 class Ball {
   constructor(x, y, radius, mass, velocity, color) {
@@ -29,6 +26,9 @@ class Ball {
     this.mass = mass;
     this.velocity = velocity;
     this.color = color;
+    // Store previous position to detect new wall collisions
+    this.prevX = x;
+    this.prevY = y;
   }
 
   draw() {
@@ -52,7 +52,7 @@ class Ball {
   }
 
   drawVelocityArrow() {
-    const arrowLength = 30; // length in pixels for max speed ~ adjust if needed
+    const arrowLength = 30; // length in pixels for max speed
     const speed = Math.sqrt(this.velocity.x ** 2 + this.velocity.y ** 2);
 
     if (speed === 0) return; // no arrow if no velocity
@@ -87,18 +87,36 @@ class Ball {
   }
 
   update() {
-    this.x += this.velocity.x;
-    this.y += this.velocity.y;
+    // Store previous position before updating
+    this.prevX = this.x;
+    this.prevY = this.y;
+    // Apply time scale to position updates
+    this.x += this.velocity.x * timeScale;
+    this.y += this.velocity.y * timeScale;
     this.wallCollision();
     this.draw();
   }
 
   wallCollision() {
-    if (this.x - this.radius * 10 <= 0 || this.x + this.radius * 10 >= canvas.width) {
-      this.velocity.x *= -1;
+    const retention = parseFloat(energyRetentionInput.value) / 100;
+    const scale = Math.sqrt(retention);
+
+    // Check for left or right wall collision
+    if (this.x - this.radius * 10 <= 0 && this.prevX - this.radius * 10 > 0) {
+      this.velocity.x *= -1 * scale;
+      collisionCount++;
+    } else if (this.x + this.radius * 10 >= canvas.width && this.prevX + this.radius * 10 < canvas.width) {
+      this.velocity.x *= -1 * scale;
+      collisionCount++;
     }
-    if (this.y - this.radius * 10 <= 0 || this.y + this.radius * 10 >= canvas.height) {
-      this.velocity.y *= -1;
+
+    // Check for top or bottom wall collision
+    if (this.y - this.radius * 10 <= 0 && this.prevY - this.radius * 10 > 0) {
+      this.velocity.y *= -1 * scale;
+      collisionCount++;
+    } else if (this.y + this.radius * 10 >= canvas.height && this.prevY + this.radius * 10 < canvas.height) {
+      this.velocity.y *= -1 * scale;
+      collisionCount++;
     }
   }
 }
@@ -329,12 +347,28 @@ function updatePreviewPosition(e) {
 clearBtn.addEventListener('click', () => {
   balls = [];
   collisionCount = 0;
+  timeScale = 1; // Reset time scale to 1x
+  speedUpBtn.textContent = 'Speed Up';
 });
 
 // Pause/Resume toggle
 pauseBtn.addEventListener('click', () => {
   paused = !paused;
   pauseBtn.textContent = paused ? 'Resume' : 'Pause';
+});
+
+// Speed Up toggle (cycles through 1x, 2x, 4x)
+speedUpBtn.addEventListener('click', () => {
+  if (timeScale === 1) {
+    timeScale = 2;
+    speedUpBtn.textContent = 'Speed: 2x';
+  } else if (timeScale === 2) {
+    timeScale = 4;
+    speedUpBtn.textContent = 'Speed: 4x';
+  } else {
+    timeScale = 1;
+    speedUpBtn.textContent = 'Speed Up';
+  }
 });
 
 animate();
