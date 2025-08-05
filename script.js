@@ -18,6 +18,10 @@ let paused = false;
 let collisionCount = 0;  // Tracks number of collisions
 let timeScale = 1;  // Simulation speed multiplier (1x, 2x, 4x)
 
+// Preview ball data
+let previewPos = null;
+let isMouseDown = false;
+
 class Ball {
   constructor(x, y, radius, mass, velocity, color) {
     this.x = x;
@@ -183,11 +187,11 @@ function animate() {
 
   // Draw preview ball if mouse down
   if (isMouseDown && previewPos) {
-    const radius = parseFloat(radiusInput.value);
-    const speed = parseFloat(speedInput.value);
-    const angle = parseFloat(angleInput.value) * Math.PI / 180;
-    const mass = parseFloat(massInput.value);
-    const color = colorInput.value;
+    const radius = parseFloat(radiusInput.value) || 1; // Fallback to 1 if invalid
+    const speed = parseFloat(speedInput.value) || 0; // Fallback to 0 if invalid
+    const angle = parseFloat(angleInput.value) * Math.PI / 180 || 0; // Fallback to 0 if invalid
+    const mass = parseFloat(massInput.value) || 10; // Fallback to 10 if invalid
+    const color = colorInput.value || '#00ff00'; // Fallback to green if invalid
 
     const velocity = {
       x: speed * Math.cos(angle),
@@ -259,6 +263,9 @@ function hexToRGBA(hex, alpha) {
 
 // Alignment helper: snap if close to another ball's X or Y (within 10px)
 function applyAlignmentAssist(x, y) {
+  // Ensure x, y are within canvas bounds
+  x = Math.max(this.radius * 10, Math.min(canvas.width - this.radius * 10, x));
+  y = Math.max(this.radius * 10, Math.min(canvas.height - this.radius * 10, y));
   for (const other of balls) {
     const dx = Math.abs(x - other.x);
     const dy = Math.abs(y - other.y);
@@ -294,35 +301,40 @@ function drawStats() {
 
 // Mouse handling for preview and placement
 canvas.addEventListener('mousedown', (e) => {
+  console.log('Mousedown event:', e.button, 'at', e.clientX, e.clientY); // Debug log
   if (e.button === 0) {  // Left click starts placement
     isMouseDown = true;
     updatePreviewPosition(e);
   } else if (e.button === 2) { // Right click cancels placement
     isMouseDown = false;
     previewPos = null;
+    console.log('Placement cancelled'); // Debug log
   }
 });
 
 canvas.addEventListener('mousemove', (e) => {
   if (isMouseDown) {
     updatePreviewPosition(e);
+    console.log('Mousemove, previewPos:', previewPos); // Debug log
   }
 });
 
 canvas.addEventListener('mouseup', (e) => {
+  console.log('Mouseup event:', e.button, 'at', e.clientX, e.clientY); // Debug log
   if (e.button === 0 && isMouseDown && previewPos) {
     // Place the ball at previewPos with current inputs
-    const radius = parseFloat(radiusInput.value);
-    const speed = parseFloat(speedInput.value);
-    const angle = parseFloat(angleInput.value) * Math.PI / 180;
-    const mass = parseFloat(massInput.value);
-    const color = colorInput.value;
+    const radius = parseFloat(radiusInput.value) || 1; // Fallback to 1 if invalid
+    const speed = parseFloat(speedInput.value) || 0; // Fallback to 0 if invalid
+    const angle = parseFloat(angleInput.value) * Math.PI / 180 || 0; // Fallback to 0 if invalid
+    const mass = parseFloat(massInput.value) || 10; // Fallback to 10 if invalid
+    const color = colorInput.value || '#00ff00'; // Fallback to green if invalid
 
     const velocity = {
       x: speed * Math.cos(angle),
       y: speed * Math.sin(angle)
     };
 
+    console.log('Placing ball at:', previewPos, 'with radius:', radius, 'speed:', speed, 'mass:', mass); // Debug log
     balls.push(new Ball(previewPos.x, previewPos.y, radius, mass, velocity, color));
     isMouseDown = false;
     previewPos = null;
@@ -331,6 +343,7 @@ canvas.addEventListener('mouseup', (e) => {
 
 // Prevent context menu on right click on canvas
 canvas.addEventListener('contextmenu', (e) => {
+  console.log('Contextmenu prevented'); // Debug log
   e.preventDefault();
 });
 
@@ -339,6 +352,7 @@ function updatePreviewPosition(e) {
   let rect = canvas.getBoundingClientRect();
   let x = e.clientX - rect.left;
   let y = e.clientY - rect.top;
+  console.log('Raw mouse coords:', e.clientX, e.clientY, 'Canvas rect:', rect, 'Adjusted:', x, y); // Debug log
   let aligned = applyAlignmentAssist(x, y);
   previewPos = aligned;
 }
@@ -349,12 +363,14 @@ clearBtn.addEventListener('click', () => {
   collisionCount = 0;
   timeScale = 1; // Reset time scale to 1x
   speedUpBtn.textContent = 'Speed Up';
+  console.log('Canvas cleared'); // Debug log
 });
 
 // Pause/Resume toggle
 pauseBtn.addEventListener('click', () => {
   paused = !paused;
   pauseBtn.textContent = paused ? 'Resume' : 'Pause';
+  console.log('Pause/Resume toggled, paused:', paused); // Debug log
 });
 
 // Speed Up toggle (cycles through 1x, 2x, 4x)
@@ -369,6 +385,7 @@ speedUpBtn.addEventListener('click', () => {
     timeScale = 1;
     speedUpBtn.textContent = 'Speed Up';
   }
+  console.log('Time scale set to:', timeScale); // Debug log
 });
 
 animate();
