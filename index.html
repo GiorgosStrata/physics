@@ -7,14 +7,39 @@
 </head>
 <body>
   <div id="controls">
-    <label>Radius: <input type="number" id="radius" min="5" max="100" value="20"></label>
-    <label>Speed: <input type="number" id="speed" min="0" max="20" value="3" step="0.1"></label>
-    <label>Angle (°): <input type="number" id="angle" min="0" max="360" value="0"></label>
-    <label>Mass: <input type="number" id="mass" min="1" max="100" value="20"></label>
-    <label>Color: <input type="color" id="color" value="#00ff00"></label>
+    <label>
+      Radius:
+      <input type="number" id="radius" min="0.1" max="100" step="0.1" value="1">
+      <span class="unit">m</span>
+    </label>
+
+    <label>
+      Speed:
+      <input type="number" id="speed" min="0" max="50" step="0.1" value="3">
+      <span class="unit">m/s</span>
+    </label>
+
+    <label>
+      Angle:
+      <input type="number" id="angle" min="0" max="360" value="0">
+      <span class="unit">°</span>
+    </label>
+
+    <label>
+      Mass:
+      <input type="number" id="mass" min="0.1" max="1000" step="0.1" value="10">
+      <span class="unit">kg</span>
+    </label>
+
+    <label>
+      Color:
+      <input type="color" id="color" value="#00ff00">
+    </label>
+
     <button id="pauseResume">Pause</button>
     <button id="clear">Clear</button>
   </div>
+
   <canvas id="canvas"></canvas>
   <script src="script.js"></script>
 </body>
