@@ -26,6 +26,10 @@ canvas {
   margin-left: 10px;
   width: 60px;
 }
+.unit {
+  margin-left: 4px;
+  color: #ccc;
+}
 #controls button {
   margin-top: 8px;
   margin-right: 5px;
