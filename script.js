@@ -8,6 +8,7 @@ const speedInput = document.getElementById('speed');
 const massInput = document.getElementById('mass');
 const angleInput = document.getElementById('angle');
 const colorInput = document.getElementById('color');
+const energyRetentionInput = document.getElementById('energyRetention');
 const clearBtn = document.getElementById('clear');
 const pauseBtn = document.getElementById('pauseResume');
 
@@ -123,8 +124,10 @@ function resolveCollision(ball1, ball2) {
     const vFinal1 = rotate(v1, -angle);
     const vFinal2 = rotate(v2, -angle);
 
-    ball1.velocity = vFinal1;
-    ball2.velocity = vFinal2;
+    // Apply kinetic energy retention factor
+    const retention = parseFloat(energyRetentionInput.value) / 100;
+    ball1.velocity = { x: vFinal1.x * Math.sqrt(retention), y: vFinal1.y * Math.sqrt(retention) };
+    ball2.velocity = { x: vFinal2.x * Math.sqrt(retention), y: vFinal2.y * Math.sqrt(retention) };
   }
 }
 
@@ -241,10 +244,10 @@ function applyAlignmentAssist(x, y) {
 function drawStats() {
   ctx.fillStyle = 'white';
   ctx.font = '18px monospace';
-  ctx.textAlign = 'left';
-
-  // Draw collision count (top-left)
-  ctx.fillText(`Collisions: ${collisionCount}`, 10, 25);
+  
+  // Draw collision count (top-middle)
+  ctx.textAlign = 'center';
+  ctx.fillText(`Collisions: ${collisionCount}`, canvas.width / 2, 25);
 
   // Calculate total kinetic energy: KE = 0.5 * m * v^2 (joules)
   let totalKE = 0;
@@ -325,4 +328,3 @@ pauseBtn.addEventListener('click', () => {
 });
 
 animate();
-
