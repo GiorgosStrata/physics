@@ -36,12 +36,51 @@ class Ball {
     ctx.fill();
     ctx.closePath();
 
-    // Draw speed label above ball
-    const speed = Math.sqrt(this.velocity.x ** 2 + this.velocity.y ** 2).toFixed(2);
+    // Draw momentum label above ball (momentum = mass * speed)
+    const speed = Math.sqrt(this.velocity.x ** 2 + this.velocity.y ** 2);
+    const momentum = (this.mass * speed).toFixed(2);
     ctx.fillStyle = 'white';
     ctx.font = '14px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(`${speed} m/s`, this.x, this.y - this.radius * 10 - 5);
+    ctx.fillText(`${momentum} kg·m/s`, this.x, this.y - this.radius * 10 - 5);
+
+    // Draw velocity arrow
+    this.drawVelocityArrow();
+  }
+
+  drawVelocityArrow() {
+    const arrowLength = 30; // length in pixels for max speed ~ adjust if needed
+    const speed = Math.sqrt(this.velocity.x ** 2 + this.velocity.y ** 2);
+
+    if (speed === 0) return; // no arrow if no velocity
+
+    // Normalize velocity to get direction
+    const dirX = this.velocity.x / speed;
+    const dirY = this.velocity.y / speed;
+
+    // Arrow endpoint
+    const endX = this.x + dirX * arrowLength;
+    const endY = this.y + dirY * arrowLength;
+
+    // Draw arrow line
+    ctx.strokeStyle = 'white';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(this.x, this.y);
+    ctx.lineTo(endX, endY);
+    ctx.stroke();
+
+    // Draw arrow head
+    const headLength = 8;
+    const angle = Math.atan2(dirY, dirX);
+
+    ctx.beginPath();
+    ctx.moveTo(endX, endY);
+    ctx.lineTo(endX - headLength * Math.cos(angle - Math.PI / 6), endY - headLength * Math.sin(angle - Math.PI / 6));
+    ctx.lineTo(endX - headLength * Math.cos(angle + Math.PI / 6), endY - headLength * Math.sin(angle + Math.PI / 6));
+    ctx.lineTo(endX, endY);
+    ctx.fillStyle = 'white';
+    ctx.fill();
   }
 
   update() {
@@ -127,15 +166,49 @@ function animate() {
     ctx.fill();
     ctx.closePath();
 
-    // Speed label above preview ball
-    const speedLabel = speed.toFixed(2);
+    // Momentum label above preview ball
+    const momentum = (mass * speed).toFixed(2);
     ctx.fillStyle = 'white';
     ctx.font = '14px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(`${speedLabel} m/s`, previewPos.x, previewPos.y - radius * 10 - 5);
+    ctx.fillText(`${momentum} kg·m/s`, previewPos.x, previewPos.y - radius * 10 - 5);
+
+    // Draw velocity arrow on preview ball
+    drawPreviewArrow(previewPos.x, previewPos.y, velocity);
   }
 
   requestAnimationFrame(animate);
+}
+
+// Draw velocity arrow for preview ball
+function drawPreviewArrow(x, y, velocity) {
+  const arrowLength = 30;
+  const speed = Math.sqrt(velocity.x ** 2 + velocity.y ** 2);
+  if (speed === 0) return;
+
+  const dirX = velocity.x / speed;
+  const dirY = velocity.y / speed;
+
+  const endX = x + dirX * arrowLength;
+  const endY = y + dirY * arrowLength;
+
+  ctx.strokeStyle = 'white';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.lineTo(endX, endY);
+  ctx.stroke();
+
+  const headLength = 8;
+  const angle = Math.atan2(dirY, dirX);
+
+  ctx.beginPath();
+  ctx.moveTo(endX, endY);
+  ctx.lineTo(endX - headLength * Math.cos(angle - Math.PI / 6), endY - headLength * Math.sin(angle - Math.PI / 6));
+  ctx.lineTo(endX - headLength * Math.cos(angle + Math.PI / 6), endY - headLength * Math.sin(angle + Math.PI / 6));
+  ctx.lineTo(endX, endY);
+  ctx.fillStyle = 'white';
+  ctx.fill();
 }
 
 // Helper: convert hex color to rgba string with alpha
@@ -159,8 +232,10 @@ function applyAlignmentAssist(x, y) {
 
 // Mouse handling for preview and placement
 canvas.addEventListener('mousedown', (e) => {
-  isMouseDown = true;
-  updatePreviewPos(e);
+  if (e.button === 0) { // left click
+    isMouseDown = true;
+    updatePreviewPos(e);
+  }
 });
 
 canvas.addEventListener('mousemove', (e) => {
@@ -170,26 +245,36 @@ canvas.addEventListener('mousemove', (e) => {
 });
 
 canvas.addEventListener('mouseup', (e) => {
-  if (isMouseDown && previewPos) {
-    const radius = parseFloat(radiusInput.value);
-    const speed = parseFloat(speedInput.value);
-    const angle = parseFloat(angleInput.value) * Math.PI / 180;
-    const mass = parseFloat(massInput.value);
-    const color = colorInput.value;
+  if (e.button === 0) { // left click release
+    if (isMouseDown && previewPos) {
+      const radius = parseFloat(radiusInput.value);
+      const speed = parseFloat(speedInput.value);
+      const angle = parseFloat(angleInput.value) * Math.PI / 180;
+      const mass = parseFloat(massInput.value);
+      const color = colorInput.value;
 
-    const velocity = {
-      x: speed * Math.cos(angle),
-      y: speed * Math.sin(angle)
-    };
+      const velocity = {
+        x: speed * Math.cos(angle),
+        y: speed * Math.sin(angle)
+      };
 
-    const ball = new Ball(previewPos.x, previewPos.y, radius, mass, velocity, color);
-    balls.push(ball);
+      const ball = new Ball(previewPos.x, previewPos.y, radius, mass, velocity, color);
+      balls.push(ball);
+    }
+    isMouseDown = false;
+    previewPos = null;
   }
-  isMouseDown = false;
-  previewPos = null;
 });
 
-// Update preview position with alignment assist
+// Cancel placement on right click
+canvas.addEventListener('contextmenu', (e) => {
+  e.preventDefault();
+  if (isMouseDown) {
+    isMouseDown = false;
+    previewPos = null;
+  }
+});
+
 function updatePreviewPos(e) {
   const rect = canvas.getBoundingClientRect();
   let x = e.clientX - rect.left;
