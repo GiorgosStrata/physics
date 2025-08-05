@@ -92,9 +92,8 @@ class Ball {
   update() {
     this.prevX = this.x;
     this.prevY = this.y;
-    // Apply timeScale only to position updates
-    this.x += this.velocity.x * timeScale;
-    this.y += this.velocity.y * timeScale;
+    this.x += this.velocity.x;
+    this.y += this.velocity.y;
     this.wallCollision();
     this.draw();
   }
@@ -184,6 +183,7 @@ function animate() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   if (!paused) {
+    // Update balls with time scale
     balls.forEach((ball, index) => {
       ball.update();
       for (let j = index + 1; j < balls.length; j++) {
@@ -229,6 +229,7 @@ function animate() {
   // Draw collision count and total kinetic energy (in kJ)
   drawStats();
 
+  // Request next frame with time scale adjustment
   requestAnimationFrame(animate);
 }
 
@@ -294,7 +295,7 @@ function drawStats() {
   // Calculate total kinetic energy: KE = 0.5 * m * v^2 (joules)
   let totalKE = 0;
   balls.forEach(ball => {
-    const speed = Math.sqrt(ball.velocity.x ** 2 + this.velocity.y ** 2);
+    const speed = Math.sqrt(ball.velocity.x ** 2 + ball.velocity.y ** 2);
     totalKE += 0.5 * ball.mass * speed * speed;
   });
 
