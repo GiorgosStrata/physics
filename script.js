@@ -261,4 +261,66 @@ function drawStats() {
 
 // Mouse handling for preview and placement
 canvas.addEventListener('mousedown', (e) => {
-  if (e
+  if (e.button === 0) {  // Left click starts placement
+    isMouseDown = true;
+    updatePreviewPosition(e);
+  } else if (e.button === 2) { // Right click cancels placement
+    isMouseDown = false;
+    previewPos = null;
+  }
+});
+
+canvas.addEventListener('mousemove', (e) => {
+  if (isMouseDown) {
+    updatePreviewPosition(e);
+  }
+});
+
+canvas.addEventListener('mouseup', (e) => {
+  if (e.button === 0 && isMouseDown && previewPos) {
+    // Place the ball at previewPos with current inputs
+    const radius = parseFloat(radiusInput.value);
+    const speed = parseFloat(speedInput.value);
+    const angle = parseFloat(angleInput.value) * Math.PI / 180;
+    const mass = parseFloat(massInput.value);
+    const color = colorInput.value;
+
+    const velocity = {
+      x: speed * Math.cos(angle),
+      y: speed * Math.sin(angle)
+    };
+
+    balls.push(new Ball(previewPos.x, previewPos.y, radius, mass, velocity, color));
+    isMouseDown = false;
+    previewPos = null;
+  }
+});
+
+// Prevent context menu on right click on canvas
+canvas.addEventListener('contextmenu', (e) => {
+  e.preventDefault();
+});
+
+// Update preview position and apply alignment assist
+function updatePreviewPosition(e) {
+  let rect = canvas.getBoundingClientRect();
+  let x = e.clientX - rect.left;
+  let y = e.clientY - rect.top;
+  let aligned = applyAlignmentAssist(x, y);
+  previewPos = aligned;
+}
+
+// Clear all balls and reset counters
+clearBtn.addEventListener('click', () => {
+  balls = [];
+  collisionCount = 0;
+});
+
+// Pause/Resume toggle
+pauseBtn.addEventListener('click', () => {
+  paused = !paused;
+  pauseBtn.textContent = paused ? 'Resume' : 'Pause';
+});
+
+animate();
+
