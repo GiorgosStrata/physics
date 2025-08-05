@@ -243,7 +243,7 @@ function drawStats() {
   ctx.font = '18px monospace';
   ctx.textAlign = 'left';
 
-  // Draw collision count
+  // Draw collision count (top-left)
   ctx.fillText(`Collisions: ${collisionCount}`, 10, 25);
 
   // Calculate total kinetic energy: KE = 0.5 * m * v^2 (joules)
@@ -256,7 +256,9 @@ function drawStats() {
   // Convert joules to kilojoules and round
   const totalKEkJ = (totalKE / 1000).toFixed(3);
 
-  ctx.fillText(`Kinetic Energy: ${totalKEkJ} kJ`, 10, 50);
+  // Draw kinetic energy in top-right
+  ctx.textAlign = 'right';
+  ctx.fillText(`Kinetic Energy: ${totalKEkJ} kJ`, canvas.width - 10, 25);
 }
 
 // Mouse handling for preview and placement
