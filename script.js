@@ -14,6 +14,10 @@ const pauseBtn = document.getElementById('pauseResume');
 let balls = [];
 let paused = false;
 
+// Preview ball data
+let previewPos = null;
+let isMouseDown = false;
+
 class Ball {
   constructor(x, y, radius, mass, velocity, color) {
     this.x = x;
@@ -25,14 +29,14 @@ class Ball {
   }
 
   draw() {
-    // Ball
+    // Draw ball
     ctx.beginPath();
     ctx.arc(this.x, this.y, this.radius * 10, 0, Math.PI * 2);
     ctx.fillStyle = this.color;
     ctx.fill();
     ctx.closePath();
 
-    // Speed label
+    // Draw speed label above ball
     const speed = Math.sqrt(this.velocity.x ** 2 + this.velocity.y ** 2).toFixed(2);
     ctx.fillStyle = 'white';
     ctx.font = '14px sans-serif';
@@ -89,52 +93,110 @@ function rotate(velocity, angle) {
 }
 
 function animate() {
-  if (!paused) {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+  if (!paused) {
     balls.forEach((ball, index) => {
       ball.update();
       for (let j = index + 1; j < balls.length; j++) {
         resolveCollision(ball, balls[j]);
       }
     });
+  } else {
+    // Draw balls but no update on pause
+    balls.forEach(ball => ball.draw());
   }
+
+  // Draw preview ball if mouse down
+  if (isMouseDown && previewPos) {
+    const radius = parseFloat(radiusInput.value);
+    const speed = parseFloat(speedInput.value);
+    const angle = parseFloat(angleInput.value) * Math.PI / 180;
+    const mass = parseFloat(massInput.value);
+    const color = colorInput.value;
+
+    const velocity = {
+      x: speed * Math.cos(angle),
+      y: speed * Math.sin(angle)
+    };
+
+    // Draw preview ball with some transparency
+    ctx.beginPath();
+    ctx.arc(previewPos.x, previewPos.y, radius * 10, 0, Math.PI * 2);
+    ctx.fillStyle = hexToRGBA(color, 0.5);
+    ctx.fill();
+    ctx.closePath();
+
+    // Speed label above preview ball
+    const speedLabel = speed.toFixed(2);
+    ctx.fillStyle = 'white';
+    ctx.font = '14px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(`${speedLabel} m/s`, previewPos.x, previewPos.y - radius * 10 - 5);
+  }
+
   requestAnimationFrame(animate);
 }
 
-// Alignment helper: snap if close to another ball's X or Y
+// Helper: convert hex color to rgba string with alpha
+function hexToRGBA(hex, alpha) {
+  const r = parseInt(hex.slice(1,3), 16);
+  const g = parseInt(hex.slice(3,5), 16);
+  const b = parseInt(hex.slice(5,7), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+// Alignment helper: snap if close to another ball's X or Y (within 10px)
 function applyAlignmentAssist(x, y) {
   for (const other of balls) {
     const dx = Math.abs(x - other.x);
     const dy = Math.abs(y - other.y);
-    if (dx < 10) return { x: other.x, y }; // snap X
-    if (dy < 10) return { x, y: other.y }; // snap Y
+    if (dx < 10) return { x: other.x, y };
+    if (dy < 10) return { x, y: other.y };
   }
   return { x, y };
 }
 
-// Add ball on canvas click
-canvas.addEventListener('click', (e) => {
+// Mouse handling for preview and placement
+canvas.addEventListener('mousedown', (e) => {
+  isMouseDown = true;
+  updatePreviewPos(e);
+});
+
+canvas.addEventListener('mousemove', (e) => {
+  if (isMouseDown) {
+    updatePreviewPos(e);
+  }
+});
+
+canvas.addEventListener('mouseup', (e) => {
+  if (isMouseDown && previewPos) {
+    const radius = parseFloat(radiusInput.value);
+    const speed = parseFloat(speedInput.value);
+    const angle = parseFloat(angleInput.value) * Math.PI / 180;
+    const mass = parseFloat(massInput.value);
+    const color = colorInput.value;
+
+    const velocity = {
+      x: speed * Math.cos(angle),
+      y: speed * Math.sin(angle)
+    };
+
+    const ball = new Ball(previewPos.x, previewPos.y, radius, mass, velocity, color);
+    balls.push(ball);
+  }
+  isMouseDown = false;
+  previewPos = null;
+});
+
+// Update preview position with alignment assist
+function updatePreviewPos(e) {
   const rect = canvas.getBoundingClientRect();
   let x = e.clientX - rect.left;
   let y = e.clientY - rect.top;
 
-  ({ x, y } = applyAlignmentAssist(x, y));
-
-  const radius = parseFloat(radiusInput.value);
-  const speed = parseFloat(speedInput.value);
-  const angle = parseFloat(angleInput.value) * Math.PI / 180;
-  const mass = parseFloat(massInput.value);
-  const color = colorInput.value;
-
-  const velocity = {
-    x: speed * Math.cos(angle),
-    y: speed * Math.sin(angle)
-  };
-
-  const ball = new Ball(x, y, radius, mass, velocity, color);
-  balls.push(ball);
-});
+  previewPos = applyAlignmentAssist(x, y);
+}
 
 clearBtn.addEventListener('click', () => {
   balls = [];
