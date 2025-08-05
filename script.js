@@ -30,8 +30,7 @@ class Ball {
     this.mass = mass;
     this.velocity = velocity;
     this.color = color;
-    // Store previous position to detect new wall collisions
-    this.prevX = x;
+    this.prevX = x; // Store previous position for wall collisions
     this.prevY = y;
   }
 
@@ -91,12 +90,10 @@ class Ball {
   }
 
   update() {
-    // Store previous position before updating
     this.prevX = this.x;
     this.prevY = this.y;
-    // Apply time scale to position updates
-    this.x += this.velocity.x * timeScale;
-    this.y += this.velocity.y * timeScale;
+    this.x += this.velocity.x;
+    this.y += this.velocity.y;
     this.wallCollision();
     this.draw();
   }
@@ -104,22 +101,27 @@ class Ball {
   wallCollision() {
     const retention = parseFloat(energyRetentionInput.value) / 100;
     const scale = Math.sqrt(retention);
+    const minSpeed = 0.01; // Minimum speed threshold to prevent energy creep
 
     // Check for left or right wall collision
     if (this.x - this.radius * 10 <= 0 && this.prevX - this.radius * 10 > 0) {
       this.velocity.x *= -1 * scale;
+      if (Math.abs(this.velocity.x) < minSpeed) this.velocity.x = 0;
       collisionCount++;
     } else if (this.x + this.radius * 10 >= canvas.width && this.prevX + this.radius * 10 < canvas.width) {
       this.velocity.x *= -1 * scale;
+      if (Math.abs(this.velocity.x) < minSpeed) this.velocity.x = 0;
       collisionCount++;
     }
 
     // Check for top or bottom wall collision
     if (this.y - this.radius * 10 <= 0 && this.prevY - this.radius * 10 > 0) {
       this.velocity.y *= -1 * scale;
+      if (Math.abs(this.velocity.y) < minSpeed) this.velocity.y = 0;
       collisionCount++;
     } else if (this.y + this.radius * 10 >= canvas.height && this.prevY + this.radius * 10 < canvas.height) {
       this.velocity.y *= -1 * scale;
+      if (Math.abs(this.velocity.y) < minSpeed) this.velocity.y = 0;
       collisionCount++;
     }
   }
@@ -157,8 +159,15 @@ function resolveCollision(ball1, ball2) {
 
       // Apply kinetic energy retention factor
       const retention = parseFloat(energyRetentionInput.value) / 100;
-      ball1.velocity = { x: vFinal1.x * Math.sqrt(retention), y: vFinal1.y * Math.sqrt(retention) };
-      ball2.velocity = { x: vFinal2.x * Math.sqrt(retention), y: vFinal2.y * Math.sqrt(retention) };
+      const minSpeed = 0.01; // Minimum speed threshold
+      ball1.velocity = { 
+        x: Math.abs(vFinal1.x * Math.sqrt(retention)) < minSpeed ? 0 : vFinal1.x * Math.sqrt(retention), 
+        y: Math.abs(vFinal1.y * Math.sqrt(retention)) < minSpeed ? 0 : vFinal1.y * Math.sqrt(retention) 
+      };
+      ball2.velocity = { 
+        x: Math.abs(vFinal2.x * Math.sqrt(retention)) < minSpeed ? 0 : vFinal2.x * Math.sqrt(retention), 
+        y: Math.abs(vFinal2.y * Math.sqrt(retention)) < minSpeed ? 0 : vFinal2.y * Math.sqrt(retention) 
+      };
     }
   }
 }
@@ -174,6 +183,7 @@ function animate() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   if (!paused) {
+    // Update balls with time scale
     balls.forEach((ball, index) => {
       ball.update();
       for (let j = index + 1; j < balls.length; j++) {
@@ -187,11 +197,11 @@ function animate() {
 
   // Draw preview ball if mouse down
   if (isMouseDown && previewPos) {
-    const radius = parseFloat(radiusInput.value) || 1; // Fallback to 1 if invalid
-    const speed = parseFloat(speedInput.value) || 0; // Fallback to 0 if invalid
-    const angle = parseFloat(angleInput.value) * Math.PI / 180 || 0; // Fallback to 0 if invalid
-    const mass = parseFloat(massInput.value) || 10; // Fallback to 10 if invalid
-    const color = colorInput.value || '#00ff00'; // Fallback to green if invalid
+    const radius = parseFloat(radiusInput.value) || 1;
+    const speed = parseFloat(speedInput.value) || 0;
+    const angle = parseFloat(angleInput.value) * Math.PI / 180 || 0;
+    const mass = parseFloat(massInput.value) || 10;
+    const color = colorInput.value || '#00ff00';
 
     const velocity = {
       x: speed * Math.cos(angle),
@@ -219,6 +229,7 @@ function animate() {
   // Draw collision count and total kinetic energy (in kJ)
   drawStats();
 
+  // Request next frame with time scale adjustment
   requestAnimationFrame(animate);
 }
 
@@ -263,9 +274,6 @@ function hexToRGBA(hex, alpha) {
 
 // Alignment helper: snap if close to another ball's X or Y (within 10px)
 function applyAlignmentAssist(x, y) {
-  // Ensure x, y are within canvas bounds
-  x = Math.max(this.radius * 10, Math.min(canvas.width - this.radius * 10, x));
-  y = Math.max(this.radius * 10, Math.min(canvas.height - this.radius * 10, y));
   for (const other of balls) {
     const dx = Math.abs(x - other.x);
     const dy = Math.abs(y - other.y);
@@ -301,33 +309,29 @@ function drawStats() {
 
 // Mouse handling for preview and placement
 canvas.addEventListener('mousedown', (e) => {
-  console.log('Mousedown event:', e.button, 'at', e.clientX, e.clientY); // Debug log
   if (e.button === 0) {  // Left click starts placement
     isMouseDown = true;
     updatePreviewPosition(e);
   } else if (e.button === 2) { // Right click cancels placement
     isMouseDown = false;
     previewPos = null;
-    console.log('Placement cancelled'); // Debug log
   }
 });
 
 canvas.addEventListener('mousemove', (e) => {
   if (isMouseDown) {
     updatePreviewPosition(e);
-    console.log('Mousemove, previewPos:', previewPos); // Debug log
   }
 });
 
 canvas.addEventListener('mouseup', (e) => {
-  console.log('Mouseup event:', e.button, 'at', e.clientX, e.clientY); // Debug log
   if (e.button === 0 && isMouseDown && previewPos) {
     // Place the ball at previewPos with current inputs
-    const radius = parseFloat(radiusInput.value) || 1; // Fallback to 1 if invalid
-    const speed = parseFloat(speedInput.value) || 0; // Fallback to 0 if invalid
-    const angle = parseFloat(angleInput.value) * Math.PI / 180 || 0; // Fallback to 0 if invalid
-    const mass = parseFloat(massInput.value) || 10; // Fallback to 10 if invalid
-    const color = colorInput.value || '#00ff00'; // Fallback to green if invalid
+    const radius = parseFloat(radiusInput.value) || 1;
+    const speed = parseFloat(speedInput.value) || 0;
+    const angle = parseFloat(angleInput.value) * Math.PI / 180 || 0;
+    const mass = parseFloat(massInput.value) || 10;
+    const color = colorInput.value || '#00ff00';
 
     const velocity = {
       x: speed * Math.cos(angle),
@@ -343,7 +347,6 @@ canvas.addEventListener('mouseup', (e) => {
 
 // Prevent context menu on right click on canvas
 canvas.addEventListener('contextmenu', (e) => {
-  console.log('Contextmenu prevented'); // Debug log
   e.preventDefault();
 });
 
@@ -352,7 +355,6 @@ function updatePreviewPosition(e) {
   let rect = canvas.getBoundingClientRect();
   let x = e.clientX - rect.left;
   let y = e.clientY - rect.top;
-  console.log('Raw mouse coords:', e.clientX, e.clientY, 'Canvas rect:', rect, 'Adjusted:', x, y); // Debug log
   let aligned = applyAlignmentAssist(x, y);
   previewPos = aligned;
 }
@@ -363,14 +365,12 @@ clearBtn.addEventListener('click', () => {
   collisionCount = 0;
   timeScale = 1; // Reset time scale to 1x
   speedUpBtn.textContent = 'Speed Up';
-  console.log('Canvas cleared'); // Debug log
 });
 
 // Pause/Resume toggle
 pauseBtn.addEventListener('click', () => {
   paused = !paused;
   pauseBtn.textContent = paused ? 'Resume' : 'Pause';
-  console.log('Pause/Resume toggled, paused:', paused); // Debug log
 });
 
 // Speed Up toggle (cycles through 1x, 2x, 4x)
@@ -385,7 +385,6 @@ speedUpBtn.addEventListener('click', () => {
     timeScale = 1;
     speedUpBtn.textContent = 'Speed Up';
   }
-  console.log('Time scale set to:', timeScale); // Debug log
 });
 
 animate();
