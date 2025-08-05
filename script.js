@@ -109,25 +109,35 @@ function resolveCollision(ball1, ball2) {
   const distance = Math.hypot(dx, dy);
 
   if (distance < ball1.radius * 10 + ball2.radius * 10) {
-    collisionCount++; // Increase collision count when a collision occurs
+    // Calculate relative velocity
+    const relVelX = ball2.velocity.x - ball1.velocity.x;
+    const relVelY = ball2.velocity.y - ball1.velocity.y;
+    
+    // Dot product of relative velocity and position difference
+    const dotProduct = relVelX * dx + relVelY * dy;
 
-    const angle = Math.atan2(dy, dx);
-    const m1 = ball1.mass;
-    const m2 = ball2.mass;
+    // Only resolve if balls are approaching (dot product < 0)
+    if (dotProduct < 0) {
+      collisionCount++; // Increase collision count for new collisions
 
-    const u1 = rotate(ball1.velocity, angle);
-    const u2 = rotate(ball2.velocity, angle);
+      const angle = Math.atan2(dy, dx);
+      const m1 = ball1.mass;
+      const m2 = ball2.mass;
 
-    const v1 = { x: ((m1 - m2) * u1.x + 2 * m2 * u2.x) / (m1 + m2), y: u1.y };
-    const v2 = { x: ((m2 - m1) * u2.x + 2 * m1 * u1.x) / (m1 + m2), y: u2.y };
+      const u1 = rotate(ball1.velocity, angle);
+      const u2 = rotate(ball2.velocity, angle);
 
-    const vFinal1 = rotate(v1, -angle);
-    const vFinal2 = rotate(v2, -angle);
+      const v1 = { x: ((m1 - m2) * u1.x + 2 * m2 * u2.x) / (m1 + m2), y: u1.y };
+      const v2 = { x: ((m2 - m1) * u2.x + 2 * m1 * u1.x) / (m1 + m2), y: u2.y };
 
-    // Apply kinetic energy retention factor
-    const retention = parseFloat(energyRetentionInput.value) / 100;
-    ball1.velocity = { x: vFinal1.x * Math.sqrt(retention), y: vFinal1.y * Math.sqrt(retention) };
-    ball2.velocity = { x: vFinal2.x * Math.sqrt(retention), y: vFinal2.y * Math.sqrt(retention) };
+      const vFinal1 = rotate(v1, -angle);
+      const vFinal2 = rotate(v2, -angle);
+
+      // Apply kinetic energy retention factor
+      const retention = parseFloat(energyRetentionInput.value) / 100;
+      ball1.velocity = { x: vFinal1.x * Math.sqrt(retention), y: vFinal1.y * Math.sqrt(retention) };
+      ball2.velocity = { x: vFinal2.x * Math.sqrt(retention), y: vFinal2.y * Math.sqrt(retention) };
+    }
   }
 }
 
